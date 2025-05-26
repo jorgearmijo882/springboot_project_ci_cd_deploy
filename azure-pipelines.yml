@@ -35,6 +35,8 @@ stages:
   jobs:
   - template: templates/deploy.yml
     parameters:
+      artifactName: 'demo'              # el nombre que usas en Release
+      version: '$(Build.BuildId)'       # la misma versión que al publicar
       remoteHost: '$(RemoteHost)'
       remoteUser: '$(RemoteUser)'
       remotePath: '$(RemotePath)'
