@@ -1,17 +1,29 @@
+parameters:
+  artifactName: ''
+  version: ''
+
 jobs:
-- job: SAST
-  displayName: Static Analysis
+- job: Release
+  displayName: Publish Artifact
   pool:
     name: Default
   steps:
-    - task: PowerShell@2
-      displayName: 'SpotBugs Static Analysis'
+    - task: AzureCLI@2
+      displayName: 'Publish Artifact to Azure Artifacts'
       inputs:
-        targetType: 'inline'
-        script: |
-          Write-Host "Running SpotBugs analysis inside Docker..."
-          docker run --rm `
-            -v "${PWD}:/app" `
-            -w /app `
-            demo-compiler:local `
-            mvn com.github.spotbugs:spotbugs-maven-plugin:4.9.3.0:check
+        azureSubscription: 'MiServiceConnection'
+        scriptType: 'ps'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          Write-Host "Publishing artifact to Azure Artifacts..."
+          az artifacts universal publish \
+            --scope project \
+            --organization $(System.TeamFoundationCollectionUri) \
+            --project $(System.TeamProject) \
+            --feed $(FeedName) \
+            --name ${{ parameters.artifactName }} \
+            --version ${{ parameters.version }} \
+            --path $(Build.ArtifactStagingDirectory)
+          
+          # Limpiar contexto de cuenta
+          az account clear
