@@ -1,16 +1,18 @@
+# templates/build.yml
 parameters:
   imageName: ''
 
 jobs:
-  - job: Build
-    pool:
-      vmImage: ubuntu-latest
-    steps:
-      - script: |
-          echo "Building Docker image..."
-          docker build --target builder -t ${{ parameters.imageName }} .
-          echo "Extracting JAR..."
-          CONTAINER=$(docker create ${{ parameters.imageName }})
-          docker cp $CONTAINER:/app/target/*.jar $(Build.ArtifactStagingDirectory)/
-          docker rm $CONTAINER
-        displayName: 'Build & Extract JAR'
+- job: Build
+  displayName: Build
+  pool:
+    name: Default 
+  steps:
+    - script: |
+        echo "Building Docker image..."
+        docker build --target builder -t ${{ parameters.imageName }} .
+        echo "Extracting JAR..."
+        CONTAINER=$(docker create ${{ parameters.imageName }})
+        docker cp $CONTAINER:/app/target/*.jar $(Build.ArtifactStagingDirectory)/
+        docker rm $CONTAINER
+      displayName: 'Build & Extract JAR'

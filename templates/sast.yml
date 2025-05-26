@@ -1,7 +1,7 @@
 jobs:
   - job: SAST
     pool:
-      vmImage: ubuntu-latest
+      name: Default
     steps:
       - script: |
           echo "Running SpotBugs analysis..."
