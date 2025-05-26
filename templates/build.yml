@@ -7,12 +7,16 @@ jobs:
   pool:
     name: Default
   steps:
-    - powershell: |
-        Write-Host "Building Docker image..."
-        docker build --target builder -t ${{ parameters.imageName }} .
-        Write-Host "Extracting JAR..."
-        $container = docker create ${{ parameters.imageName }}
-        docker cp "$container:/app/target/*.jar" "$(Build.ArtifactStagingDirectory)"
-        docker rm $container
+    - task: PowerShell@2
       displayName: 'Build & Extract JAR'
-
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "Building Docker image..."
+          docker build --target builder -t ${{ parameters.imageName }} .
+          Write-Host "Extracting JAR..."
+          # Create container and extract JAR
+          $containerId = docker create ${{ parameters.imageName }}
+          # Use PowerShell variable expansion with braces to handle colon
+          docker cp "${containerId}:/app/target/*.jar" "$(Build.ArtifactStagingDirectory)"
+          docker rm $containerId
