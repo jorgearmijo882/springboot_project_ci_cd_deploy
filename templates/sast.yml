@@ -1,10 +1,17 @@
 jobs:
-  - job: SAST
-    pool:
-      name: Default
-    steps:
-      - script: |
-          echo "Running SpotBugs analysis..."
-          mvn com.github.spotbugs:spotbugs-maven-plugin:4.7.0:check
-        workingDirectory: $(Build.SourcesDirectory)
-        displayName: 'SpotBugs Static Analysis'
+- job: SAST
+  displayName: Static Analysis
+  pool:
+    name: Default
+  steps:
+    - task: PowerShell@2
+      displayName: 'SpotBugs Static Analysis'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "Running SpotBugs analysis inside Docker..."
+          docker run --rm `
+            -v "${PWD}:/app" `
+            -w /app `
+            demo-compiler:local `
+            mvn com.github.spotbugs:spotbugs-maven-plugin:4.9.3.0:check
