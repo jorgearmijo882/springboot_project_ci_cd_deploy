@@ -3,11 +3,18 @@ parameters:
   version: ''
 
 jobs:
-  - job: Release
-    pool:
-      name: Default
-    steps:
-      - script: |
+- job: Release
+  displayName: Publish Artifact
+  pool:
+    name: Default
+  steps:
+    - task: AzureCLI@2
+      displayName: 'Publish Artifact to Azure Artifacts'
+      inputs:
+        azureSubscription: 'MiServiceConnection'  
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
           echo "Publishing artifact to Azure Artifacts..."
           az artifacts universal publish \
             --organization $(System.TeamFoundationCollectionUri) \
@@ -16,4 +23,3 @@ jobs:
             --name ${{ parameters.artifactName }} \
             --version ${{ parameters.version }} \
             --path $(Build.ArtifactStagingDirectory)
-        displayName: 'Publish Artifact'
