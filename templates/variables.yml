@@ -1,8 +1,8 @@
 # templates/variables.yml
 variables:
-  RemoteHost: 'localhost'
+  RemoteHost: 'host.docker.internal'
   RemoteUser: 'root'
   RemotePath: '/opt/demo'
   BackupPath: '/opt/demo/backups'
-  HealthCheckUrl: 'http://localhost:8080/hello'
+  HealthCheckUrl: 'http://host.docker.internal:8080/hello'
   FeedName: 'demo-feed'
