@@ -12,12 +12,16 @@ stages:
       - template: templates/build.yml
         parameters:
           imageName: '$(Build.Repository.Name)-compiler:$(Build.BuildId)'
+    pool:
+      name: Default
 
   - stage: SAST
     displayName: Static Analysis
     dependsOn: Build
     jobs:
       - template: templates/sast.yml
+    pool:
+      name: Default
 
   - stage: Release
     displayName: Release
@@ -27,6 +31,8 @@ stages:
         parameters:
           artifactName: 'demo'
           version: '$(Build.BuildId)'
+    pool:
+      name: Default
 
   - stage: Deploy
     displayName: Deploy
@@ -50,3 +56,5 @@ stages:
           remotePath: '$(RemotePath)'
           backupPath: '$(BackupPath)'
           healthCheckUrl: '$(HealthCheckUrl)'
+    pool:
+      name: Default
