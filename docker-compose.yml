@@ -1,0 +1,23 @@
+services:
+  builder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    volumes:
+      - ./:/app:delegated
+      - m2-cache:/root/.m2:delegated
+    working_dir: /app
+    command: mvn clean package -B -DskipTests
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: demo-runtime:latest
+    ports:
+      - "8080:8080"
+
+volumes:
+  m2-cache:

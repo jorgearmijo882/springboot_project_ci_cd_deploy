@@ -1,0 +1,56 @@
+parameters:
+  remoteHost: ''
+  remoteUser: ''
+  remotePath: ''
+  backupPath: ''
+  healthCheckUrl: ''
+
+jobs:
+  - job: Deploy
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - script: |
+          echo "Downloading artifact..."
+          az artifacts universal download \
+            --organization $(System.TeamFoundationCollectionUri) \
+            --project $(System.TeamProject) \
+            --feed $(FeedName) \
+            --name $(artifactName) \
+            --version $(version) \
+            --path ./
+        displayName: 'Download Artifact'
+
+      - script: |
+          echo "Transferring artifact to remote server..."
+          scp -o StrictHostKeyChecking=no $(artifactName)-$(version).jar ${{ parameters.remoteUser }}@${{ parameters.remoteHost }}:${{ parameters.remotePath }}/app.jar
+        displayName: 'Transfer Artifact'
+
+      - script: |
+          echo "Backing up previous artifact..."
+          ssh -o StrictHostKeyChecking=no ${{ parameters.remoteUser }}@${{ parameters.remoteHost }} "mkdir -p ${{ parameters.backupPath }} && cp ${{ parameters.remotePath }}/app.jar ${{ parameters.backupPath }}/app-$(date +'%Y%m%d%H%M%S').jar"
+        displayName: 'Backup Previous Artifact'
+
+      - script: |
+          echo "Restarting application on remote server..."
+          ssh -o StrictHostKeyChecking=no ${{ parameters.remoteUser }}@${{ parameters.remoteHost }} << 'EOF'
+            pkill -f "java -jar"
+            nohup java -jar ${{ parameters.remotePath }}/app.jar > /dev/null 2>&1 &
+          EOF
+        displayName: 'Replace and Restart Application'
+
+      - script: |
+          echo "Performing health check..."
+          for i in {1..5}; do
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ parameters.healthCheckUrl }})
+            if [ "$HTTP_STATUS" -eq 200 ]; then
+              echo "Health check passed"
+              exit 0
+            else
+              echo "Attempt $i: Health check failed with status $HTTP_STATUS"
+              sleep 5
+            fi
+          done
+          echo "Health check failed after retries"
+          exit 1
+        displayName: 'Health Check'

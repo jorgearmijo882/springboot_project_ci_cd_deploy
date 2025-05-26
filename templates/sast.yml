@@ -1,0 +1,10 @@
+jobs:
+  - job: SAST
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - script: |
+          echo "Running SpotBugs analysis..."
+          mvn com.github.spotbugs:spotbugs-maven-plugin:4.7.0:check
+        workingDirectory: $(Build.SourcesDirectory)
+        displayName: 'SpotBugs Static Analysis'

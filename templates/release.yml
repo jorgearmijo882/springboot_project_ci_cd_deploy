@@ -1,0 +1,19 @@
+parameters:
+  artifactName: ''
+  version: ''
+
+jobs:
+  - job: Release
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - script: |
+          echo "Publishing artifact to Azure Artifacts..."
+          az artifacts universal publish \
+            --organization $(System.TeamFoundationCollectionUri) \
+            --project $(System.TeamProject) \
+            --feed $(FeedName) \
+            --name ${{ parameters.artifactName }} \
+            --version ${{ parameters.version }} \
+            --path $(Build.ArtifactStagingDirectory)
+        displayName: 'Publish Artifact'
