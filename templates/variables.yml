@@ -1,0 +1,8 @@
+# templates/variables.yml
+variables:
+  RemoteHost: '172.171.243.10'
+  RemoteUser: 'jorge'
+  RemotePath: '/opt/demo'
+  BackupPath: '/opt/demo/backups'
+  HealthCheckUrl: 'http://172.171.243.10:8080/hello'
+  FeedName: 'demo-feed'
