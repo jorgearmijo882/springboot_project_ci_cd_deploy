@@ -7,7 +7,7 @@ jobs:
   pool:
     name: Default
   steps:
-    - pwsh: |
+    - powershell: |
         Write-Host "Building Docker image..."
         docker build --target builder -t ${{ parameters.imageName }} .
         Write-Host "Extracting JAR..."
@@ -15,3 +15,4 @@ jobs:
         docker cp "$container:/app/target/*.jar" "$(Build.ArtifactStagingDirectory)"
         docker rm $container
       displayName: 'Build & Extract JAR'
+
