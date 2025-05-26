@@ -1,4 +1,3 @@
-# templates/build.yml
 parameters:
   imageName: ''
 
@@ -6,13 +5,13 @@ jobs:
 - job: Build
   displayName: Build
   pool:
-    name: Default 
+    name: Default
   steps:
-    - script: |
-        echo "Building Docker image..."
+    - pwsh: |
+        Write-Host "Building Docker image..."
         docker build --target builder -t ${{ parameters.imageName }} .
-        echo "Extracting JAR..."
-        CONTAINER=$(docker create ${{ parameters.imageName }})
-        docker cp $CONTAINER:/app/target/*.jar $(Build.ArtifactStagingDirectory)/
-        docker rm $CONTAINER
+        Write-Host "Extracting JAR..."
+        $container = docker create ${{ parameters.imageName }}
+        docker cp "$container:/app/target/*.jar" "$(Build.ArtifactStagingDirectory)"
+        docker rm $container
       displayName: 'Build & Extract JAR'
