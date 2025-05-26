@@ -2,59 +2,49 @@ trigger:
   branches:
     include:
       - main
+
 variables:
-  - template: templates/variables.yml
+- template: templates/variables.yml
 
 stages:
-  - stage: Build
-    displayName: Build
-    jobs:
-      - template: templates/build.yml
-        parameters:
-          imageName: '$(Build.Repository.Name)-compiler:$(Build.BuildId)'
+- stage: Build
+  displayName: Build
+  jobs:
+  - template: templates/build.yml
+    parameters:
+      imageName: '$(Build.Repository.Name)-compiler:$(Build.BuildId)'
     pool:
       name: Default
 
-  - stage: SAST
-    displayName: Static Analysis
-    dependsOn: Build
-    jobs:
-      - template: templates/sast.yml
+- stage: SAST
+  displayName: Static Analysis
+  dependsOn: Build
+  jobs:
+  - template: templates/sast.yml
     pool:
       name: Default
 
-  - stage: Release
-    displayName: Release
-    dependsOn: SAST
-    jobs:
-      - template: templates/release.yml
-        parameters:
-          artifactName: 'demo'
-          version: '$(Build.BuildId)'
+- stage: Release
+  displayName: Release
+  dependsOn: SAST
+  jobs:
+  - template: templates/release.yml
+    parameters:
+      artifactName: 'demo'
+      version: '$(Build.BuildId)'
     pool:
       name: Default
 
-  - stage: Deploy
-    displayName: Deploy
-    dependsOn: Release
-    variables:
-      - name: RemoteHost
-        value: '$(RemoteHost)'
-      - name: RemoteUser
-        value: '$(RemoteUser)'
-      - name: RemotePath
-        value: '$(RemotePath)'
-      - name: BackupPath
-        value: '$(BackupPath)'
-      - name: HealthCheckUrl
-        value: '$(HealthCheckUrl)'
-    jobs:
-      - template: templates/deploy.yml
-        parameters:
-          remoteHost: '$(RemoteHost)'
-          remoteUser: '$(RemoteUser)'
-          remotePath: '$(RemotePath)'
-          backupPath: '$(BackupPath)'
-          healthCheckUrl: '$(HealthCheckUrl)'
+- stage: Deploy
+  displayName: Deploy
+  dependsOn: Release
+  jobs:
+  - template: templates/deploy.yml
+    parameters:
+      remoteHost: '$(RemoteHost)'
+      remoteUser: '$(RemoteUser)'
+      remotePath: '$(RemotePath)'
+      backupPath: '$(BackupPath)'
+      healthCheckUrl: '$(HealthCheckUrl)'
     pool:
       name: Default
