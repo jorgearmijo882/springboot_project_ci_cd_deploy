@@ -12,7 +12,8 @@ jobs:
       displayName: 'Publish Artifact to Azure Artifacts'
       inputs:
         azureSubscription: 'MiServiceConnection'  
-        scriptType: 'bash'
+        scriptType: 'pscore'
+#        scriptType: 'bash'
         scriptLocation: 'inlineScript'
         inlineScript: |
           echo "Publishing artifact to Azure Artifacts..."
