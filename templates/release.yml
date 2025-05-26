@@ -8,29 +8,22 @@ jobs:
   pool:
     name: Default
   steps:
-    - task: AzureCLI@2
-      displayName: 'Publish Artifact to Azure Artifacts'
-      inputs:
-        azureSubscription: 'MiServiceConnection'
-        scriptType: 'ps'                     
-        scriptLocation: 'inlineScript'
-        inlineScript: |
-          Write-Host "Configuring Azure DevOps extension..."
-          # Permitir instalación de extensiones en preview sin prompt
-          az config set extension.use_dynamic_install=yes_without_prompt
+  - task: AzureCLI@2
+    displayName: 'Publish Artifact to Azure Artifacts'
+    inputs:
+      azureSubscription: 'MiServiceConnection'
+      scriptType: 'ps'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        Write-Host "Publishing artifact to Azure Artifacts..."
+        # Permitir instalación de extensiones sin prompt
+        az config set extension.use_dynamic_install=yes_without_prompt
 
-          Write-Host "Installing Azure DevOps extension..."
-          az extension add --name azure-devops
+        # Instalar extensión azure-devops si no existe
+        az extension add --name azure-devops
 
-          Write-Host "Publishing artifact to Azure Artifacts..."
-          az artifacts universal publish `
-            --organization $(System.TeamFoundationCollectionUri) `
-            --scope project `           # <-- OBLIGATORIO al usar --project
-            --project $(System.TeamProject) `
-            --feed $(FeedName) `
-            --name ${{ parameters.artifactName }} `
-            --version ${{ parameters.version }} `
-            --path $(Build.ArtifactStagingDirectory)
+        # Publicar artefacto en Azure Artifacts en una sola línea para evitar errores de PowerShell
+        az artifacts universal publish --scope project --organization $(System.TeamFoundationCollectionUri) --project $(System.TeamProject) --feed $(FeedName) --name ${{ parameters.artifactName }} --version ${{ parameters.version }} --path $(Build.ArtifactStagingDirectory)
 
-          # Limpieza de la sesión al final (opcional)
-          az account clear
+        # Limpiar sesión de cuenta
+        az account clear
