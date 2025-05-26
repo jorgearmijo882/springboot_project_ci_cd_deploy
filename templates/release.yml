@@ -11,16 +11,15 @@ jobs:
     - task: AzureCLI@2
       displayName: 'Publish Artifact to Azure Artifacts'
       inputs:
-        azureSubscription: 'MiServiceConnection'  
-        scriptType: 'pscore'
-#        scriptType: 'bash'
+        azureSubscription: 'MiServiceConnection'   
+        scriptType: 'ps'                 
         scriptLocation: 'inlineScript'
         inlineScript: |
-          echo "Publishing artifact to Azure Artifacts..."
-          az artifacts universal publish \
-            --organization $(System.TeamFoundationCollectionUri) \
-            --project $(System.TeamProject) \
-            --feed $(FeedName) \
-            --name ${{ parameters.artifactName }} \
-            --version ${{ parameters.version }} \
+          Write-Host "Publishing artifact to Azure Artifacts..."
+          az artifacts universal publish `
+            --organization $(System.TeamFoundationCollectionUri) `
+            --project $(System.TeamProject) `
+            --feed $(FeedName) `
+            --name ${{ parameters.artifactName }} `
+            --version ${{ parameters.version }} `
             --path $(Build.ArtifactStagingDirectory)
