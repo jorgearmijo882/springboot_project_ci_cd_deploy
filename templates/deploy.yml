@@ -1,25 +1,25 @@
 parameters:
-- name: artifactName
-  type: string
-  default: ''
-- name: version
-  type: string
-  default: ''
-- name: remoteHost
-  type: string
-  default: ''
-- name: remoteUser
-  type: string
-  default: ''
-- name: remotePath
-  type: string
-  default: ''
-- name: backupPath
-  type: string
-  default: ''
-- name: healthCheckUrl
-  type: string
-  default: ''
+  - name: artifactName
+    type: string
+    default: ''
+  - name: version
+    type: string
+    default: ''
+  - name: remoteHost
+    type: string
+    default: ''
+  - name: remoteUser
+    type: string
+    default: ''
+  - name: remotePath
+    type: string
+    default: ''
+  - name: backupPath
+    type: string
+    default: ''
+  - name: healthCheckUrl
+    type: string
+    default: ''
 
 jobs:
 - job: Deploy
@@ -28,55 +28,66 @@ jobs:
     name: Default
 
   steps:
-  # 1) Descargar el JAR publicado en Release
-  - task: DownloadPipelineArtifact@2
-    displayName: 'Download JAR from Build'
-    inputs:
-      buildType: 'current'
-      artifactName: ${{ parameters.artifactName }}
-      targetPath: '$(System.DefaultWorkingDirectory)'
+    # 1) Descargar el JAR publicado en Release
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download JAR from Build'
+      inputs:
+        buildType: 'current'
+        artifactName: ${{ parameters.artifactName }}
+        targetPath: '$(System.DefaultWorkingDirectory)'
 
-  # 2) Transferir al servidor remoto
-  - powershell: |
-      # Construimos rutas Windows
-      $source = Join-Path $env:System_DefaultWorkingDirectory "$(${{ parameters.artifactName }})-$(${{ parameters.version }}).jar"
-      $destination = "${{ parameters.remoteUser }}@${{ parameters.remoteHost }}:${{ parameters.remotePath }}/app.jar"
-      Write-Host "Transferring artifact from $source to $destination"
-      # Llamamos al scp nativo de Windows (OpenSSH)
-      scp.exe -o StrictHostKeyChecking=no $source $destination
-    displayName: 'Transfer Artifact'
+    # 2) Transferir al servidor remoto
+    - task: PowerShell@2
+      displayName: 'Transfer Artifact'
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Aquí usamos literales ya expandidos: ej. "demo-51.jar"
+          $source = Join-Path "$(System.DefaultWorkingDirectory)" "${{ parameters.artifactName }}-${{ parameters.version }}.jar"
+          $destination = "${{ parameters.remoteUser }}@${{ parameters.remoteHost }}:${{ parameters.remotePath }}/app.jar"
+          Write-Host "Transferring artifact from $source to $destination"
+          scp.exe -o StrictHostKeyChecking=no $source $destination
 
-  # 3) Respaldar el artefacto anterior
-  - script: |
-      echo "Backing up previous artifact..."
-      ssh -o StrictHostKeyChecking=no ${{ parameters.remoteUser }}@${{ parameters.remoteHost }} \
-        "mkdir -p ${{ parameters.backupPath }} && \
-         cp ${{ parameters.remotePath }}/app.jar \
-            ${{ parameters.backupPath }}/app-$(date +'%Y%m%d%H%M%S').jar"
-    displayName: 'Backup Previous Artifact'
+    # 3) Respaldar el artefacto anterior
+    - task: PowerShell@2
+      displayName: 'Backup Previous Artifact'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $remote = "${{ parameters.remoteUser }}@${{ parameters.remoteHost }}"
+          $cmd = "mkdir -p ${{ parameters.backupPath }} && cp ${{ parameters.remotePath }}/app.jar ${{ parameters.backupPath }}/app-$(date +'%Y%m%d%H%M%S').jar"
+          Write-Host "Running backup on $remote: $cmd"
+          ssh.exe -o StrictHostKeyChecking=no $remote $cmd
 
-  # 4) Reemplazar y reiniciar la aplicación
-  - script: |
-      echo "Replacing and restarting application..."
-      ssh -o StrictHostKeyChecking=no ${{ parameters.remoteUser }}@${{ parameters.remoteHost }} << 'EOF'
-        pkill -f "java -jar"
-        nohup java -jar ${{ parameters.remotePath }}/app.jar \
-          > /dev/null 2>&1 &
-      EOF
-    displayName: 'Replace and Restart Application'
+    # 4) Reemplazar y reiniciar la aplicación
+    - task: PowerShell@2
+      displayName: 'Replace and Restart Application'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $remote = "${{ parameters.remoteUser }}@${{ parameters.remoteHost }}"
+          $block = @'
+          pkill -f "java -jar"
+          nohup java -jar ${{ parameters.remotePath }}/app.jar > /dev/null 2>&1 &
+          '@
+          Write-Host "Executing restart block on $remote"
+          ssh.exe -o StrictHostKeyChecking=no $remote $block
 
-  # 5) Health check HTTP
-  - script: |
-      echo "Performing health check..."
-      for i in {1..5}; do
-        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ parameters.healthCheckUrl }})
-        if [ "$HTTP_STATUS" -eq 200 ]; then
-          echo "Health check passed"
-          exit 0
-        fi
-        echo "Attempt $i: Health check failed with status $HTTP_STATUS"
-        sleep 5
-      done
-      echo "Health check failed after retries"
-      exit 1
-    displayName: 'Health Check'
+    # 5) Health check HTTP
+    - task: PowerShell@2
+      displayName: 'Health Check'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $url = "${{ parameters.healthCheckUrl }}"
+          for ($i=1; $i -le 5; $i++) {
+            $status = (curl.exe -s -o $null -w "%{http_code}" $url)
+            if ($status -eq "200") {
+              Write-Host "Health check passed"
+              exit 0
+            }
+            Write-Host "Attempt $i: Health check failed with status $status"
+            Start-Sleep -Seconds 5
+          }
+          Write-Error "Health check failed after retries"
+          exit 1
