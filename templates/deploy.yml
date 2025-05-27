@@ -37,11 +37,13 @@ jobs:
       targetPath: '$(System.DefaultWorkingDirectory)'
 
   # 2) Transferir al servidor remoto
-  - script: |
-      echo "Transferring artifact to remote server..."
-      scp -o StrictHostKeyChecking=no \
-        $(System.DefaultWorkingDirectory)/${{ parameters.artifactName }}-${{ parameters.version }}.jar \
-        ${{ parameters.remoteUser }}@${{ parameters.remoteHost }}:${{ parameters.remotePath }}/app.jar
+  - powershell: |
+      # Construimos rutas Windows
+      $source = Join-Path $env:System_DefaultWorkingDirectory "$(${{ parameters.artifactName }})-$(${{ parameters.version }}).jar"
+      $destination = "${{ parameters.remoteUser }}@${{ parameters.remoteHost }}:${{ parameters.remotePath }}/app.jar"
+      Write-Host "Transferring artifact from $source to $destination"
+      # Llamamos al scp nativo de Windows (OpenSSH)
+      scp.exe -o StrictHostKeyChecking=no $source $destination
     displayName: 'Transfer Artifact'
 
   # 3) Respaldar el artefacto anterior
