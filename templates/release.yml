@@ -1,29 +1,16 @@
+# templates/release.yml
 parameters:
   artifactName: ''
   version: ''
 
-jobs:
 - job: Release
   displayName: Publish Artifact
   pool:
     name: Default
+
   steps:
-  - task: AzureCLI@2
-    displayName: 'Publish Artifact to Azure Artifacts'
-    inputs:
-      azureSubscription: 'MiServiceConnection'
-      scriptType: 'ps'
-      scriptLocation: 'inlineScript'
-      inlineScript: |
-        Write-Host "Publishing artifact to Azure Artifacts..."
-        # Permitir instalación de extensiones sin prompt
-        az config set extension.use_dynamic_install=yes_without_prompt
-
-        # Instalar extensión azure-devops si no existe
-        az extension add --name azure-devops
-
-        # Publicar artefacto en Azure Artifacts en una sola línea para evitar errores de PowerShell
-        az artifacts universal publish --scope project --organization $(System.TeamFoundationCollectionUri) --project $(System.TeamProject) --feed $(FeedName) --name ${{ parameters.artifactName }} --version ${{ parameters.version }} --path $(Build.ArtifactStagingDirectory)
-
-        # Limpiar sesión de cuenta
-        az account clear
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish JAR as Pipeline Artifact'
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)'
+        artifact: ${{ parameters.artifactName }}

@@ -1,41 +1,43 @@
+# templates/deploy.yml
+
 parameters:
-  artifactName: ''
-  version: ''
   remoteHost: ''
   remoteUser: ''
   remotePath: ''
   backupPath: ''
   healthCheckUrl: ''
 
-jobs:
 - job: Deploy
   displayName: Deploy to Remote
   pool:
     name: Default
-  steps:
-    - script: |
-        echo "Downloading artifact..."
-        az artifacts universal download \
-          --scope project \
-          --organization $(System.TeamFoundationCollectionUri) \
-          --project $(System.TeamProject) \
-          --feed $(FeedName) \
-          --name ${{ parameters.artifactName }} \
-          --version ${{ parameters.version }} \
-          --path ./
-      displayName: 'Download Artifact'
 
+  steps:
+    # 1) Descargar el JAR de la fase Release
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download JAR from Build'
+      inputs:
+        buildType: 'current'
+        artifactName: 'demo'            # Asegúrate de que coincide con parameters.artifactName pasado
+        targetPath: '$(System.DefaultWorkingDirectory)'
+
+    # 2) Transferir el JAR al servidor remoto/SSH
     - script: |
         echo "Transferring artifact to remote server..."
-        scp -o StrictHostKeyChecking=no ${{ parameters.artifactName }}-${{ parameters.version }}.jar ${{ parameters.remoteUser }}@${{ parameters.remoteHost }}:${{ parameters.remotePath }}/app.jar
+        scp -o StrictHostKeyChecking=no \
+          $(System.DefaultWorkingDirectory)/demo-$(Build.BuildId).jar \
+          ${{ parameters.remoteUser }}@${{ parameters.remoteHost }}:${{ parameters.remotePath }}/app.jar
       displayName: 'Transfer Artifact'
 
+    # 3) Respaldar el artefacto anterior
     - script: |
         echo "Backing up previous artifact..."
         ssh -o StrictHostKeyChecking=no ${{ parameters.remoteUser }}@${{ parameters.remoteHost }} \
-          "mkdir -p ${{ parameters.backupPath }} && cp ${{ parameters.remotePath }}/app.jar ${{ parameters.backupPath }}/app-$(date +'%Y%m%d%H%M%S').jar"
+          "mkdir -p ${{ parameters.backupPath }} && \
+           cp ${{ parameters.remotePath }}/app.jar ${{ parameters.backupPath }}/app-$(date +'%Y%m%d%H%M%S').jar"
       displayName: 'Backup Previous Artifact'
 
+    # 4) Reemplazar y reiniciar la app
     - script: |
         echo "Restarting application on remote server..."
         ssh -o StrictHostKeyChecking=no ${{ parameters.remoteUser }}@${{ parameters.remoteHost }} << 'EOF'
@@ -44,6 +46,7 @@ jobs:
         EOF
       displayName: 'Replace and Restart Application'
 
+    # 5) Comprobar health-check
     - script: |
         echo "Performing health check..."
         for i in {1..5}; do
@@ -51,10 +54,9 @@ jobs:
           if [ "$HTTP_STATUS" -eq 200 ]; then
             echo "Health check passed"
             exit 0
-          else
-            echo "Attempt $i: Health check failed with status $HTTP_STATUS"
-            sleep 5
           fi
+          echo "Attempt $i: Health check failed with status $HTTP_STATUS"
+          sleep 5
         done
         echo "Health check failed after retries"
         exit 1
