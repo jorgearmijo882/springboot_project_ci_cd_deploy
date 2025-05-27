@@ -1,5 +1,3 @@
-# templates/deploy.yml
-
 parameters:
 - name: artifactName
   type: string
@@ -23,7 +21,7 @@ jobs:
     name: Default
 
   steps:
-    # 1) Descargar el JAR publicado en Release
+    # 1) Descargar el JAR publicado en Release al workspace
     - task: DownloadPipelineArtifact@2
       displayName: 'Download JAR from Build'
       inputs:
@@ -37,17 +35,17 @@ jobs:
       inputs:
         targetType: 'inline'
         script: |
-          # Ubicación donde DownloadPipelineArtifact colocó el artifact:
-          $artifactDir = Join-Path $env:Pipeline_Workspace '${{ parameters.artifactName }}'
+          # Directorio donde descargó el artefacto
+          $artifactDir = "$(Pipeline.Workspace)"
           
-          # Busca el primer .jar en esa carpeta
+          # Busca el primer .jar dentro de esa carpeta
           $jarFile = Get-ChildItem -Path $artifactDir -Filter '*.jar' | Select-Object -First 1
           if (-not $jarFile) {
-            throw "No se encontró ningún .jar en $artifactDir"
+            throw "ERROR: No se encontró ningún .jar en $artifactDir"
           }
 
           # Define origen y destino
-          $source = $jarFile.FullName
+          $source      = $jarFile.FullName
           $destination = "${{ parameters.remoteUser }}@${{ parameters.remoteHost }}:${{ parameters.remotePath }}/app.jar"
           
           Write-Host "Transfiriendo '$($jarFile.Name)' desde '$source' a '$destination'"
@@ -60,7 +58,7 @@ jobs:
         targetType: 'inline'
         script: |
           $remote = "${{ parameters.remoteUser }}@${{ parameters.remoteHost }}"
-          $cmd = "mkdir -p ${{ parameters.backupPath }} && cp ${{ parameters.remotePath }}/app.jar ${{ parameters.backupPath }}/app-$(date +'%Y%m%d%H%M%S').jar"
+          $cmd    = "mkdir -p ${{ parameters.backupPath }} && cp ${{ parameters.remotePath }}/app.jar ${{ parameters.backupPath }}/app-$(date +'%Y%m%d%H%M%S').jar"
           Write-Host "Ejecutando backup en $remote: $cmd"
           ssh.exe -o StrictHostKeyChecking=no $remote $cmd
 
@@ -71,7 +69,7 @@ jobs:
         targetType: 'inline'
         script: |
           $remote = "${{ parameters.remoteUser }}@${{ parameters.remoteHost }}"
-          $block = @'
+          $block  = @'
           pkill -f "java -jar"
           nohup java -jar ${{ parameters.remotePath }}/app.jar > /dev/null 2>&1 &
           '@
