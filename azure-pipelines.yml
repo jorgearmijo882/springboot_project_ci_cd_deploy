@@ -21,11 +21,13 @@ stages:
   - template: templates/sast.yml
 
 - stage: Release
+  displayName: Release
+  dependsOn: SAST
   jobs:
-  - template: templates/release.yml
-    parameters:
-      artifactName: demo
-      version: $(Build.BuildId)
+    - template: templates/release.yml
+      parameters:
+        artifactName: demo
+        version: $(Build.BuildId)
 
 - stage: Deploy
   displayName: Deploy
@@ -33,8 +35,11 @@ stages:
   jobs:
     - template: templates/deploy.yml
       parameters:
+        artifactName: demo
+        version: $(Build.BuildId)
         remoteHost: $(RemoteHost)
         remoteUser: $(RemoteUser)
         remotePath: $(RemotePath)
         backupPath: $(BackupPath)
         healthCheckUrl: $(HealthCheckUrl)
+

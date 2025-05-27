@@ -1,6 +1,6 @@
-# templates/deploy.yml
-
 parameters:
+  artifactName: ''
+  version: ''
   remoteHost: ''
   remoteUser: ''
   remotePath: ''
@@ -13,19 +13,19 @@ parameters:
     name: Default
 
   steps:
-    # 1) Descargar el JAR de la fase Release
+    # 1) Descargar el JAR publicado en Release
     - task: DownloadPipelineArtifact@2
       displayName: 'Download JAR from Build'
       inputs:
         buildType: 'current'
-        artifactName: 'demo'            # Asegúrate de que coincide con parameters.artifactName pasado
+        artifactName: ${{ parameters.artifactName }}
         targetPath: '$(System.DefaultWorkingDirectory)'
 
-    # 2) Transferir el JAR al servidor remoto/SSH
+    # 2) Transferir al servidor remoto
     - script: |
         echo "Transferring artifact to remote server..."
         scp -o StrictHostKeyChecking=no \
-          $(System.DefaultWorkingDirectory)/demo-$(Build.BuildId).jar \
+          $(System.DefaultWorkingDirectory)/${{ parameters.artifactName }}-${{ parameters.version }}.jar \
           ${{ parameters.remoteUser }}@${{ parameters.remoteHost }}:${{ parameters.remotePath }}/app.jar
       displayName: 'Transfer Artifact'
 
@@ -37,16 +37,16 @@ parameters:
            cp ${{ parameters.remotePath }}/app.jar ${{ parameters.backupPath }}/app-$(date +'%Y%m%d%H%M%S').jar"
       displayName: 'Backup Previous Artifact'
 
-    # 4) Reemplazar y reiniciar la app
+    # 4) Reemplazar y reiniciar la aplicación
     - script: |
-        echo "Restarting application on remote server..."
+        echo "Replacing and restarting application..."
         ssh -o StrictHostKeyChecking=no ${{ parameters.remoteUser }}@${{ parameters.remoteHost }} << 'EOF'
           pkill -f "java -jar"
           nohup java -jar ${{ parameters.remotePath }}/app.jar > /dev/null 2>&1 &
         EOF
       displayName: 'Replace and Restart Application'
 
-    # 5) Comprobar health-check
+    # 5) Health check HTTP
     - script: |
         echo "Performing health check..."
         for i in {1..5}; do
