@@ -1,25 +1,20 @@
+# templates/deploy.yml
+
 parameters:
-  - name: artifactName
-    type: string
-    default: ''
-  - name: version
-    type: string
-    default: ''
-  - name: remoteHost
-    type: string
-    default: ''
-  - name: remoteUser
-    type: string
-    default: ''
-  - name: remotePath
-    type: string
-    default: ''
-  - name: backupPath
-    type: string
-    default: ''
-  - name: healthCheckUrl
-    type: string
-    default: ''
+- name: artifactName
+  type: string
+- name: version
+  type: string
+- name: remoteHost
+  type: string
+- name: remoteUser
+  type: string
+- name: remotePath
+  type: string
+- name: backupPath
+  type: string
+- name: healthCheckUrl
+  type: string
 
 jobs:
 - job: Deploy
@@ -34,7 +29,7 @@ jobs:
       inputs:
         buildType: 'current'
         artifactName: ${{ parameters.artifactName }}
-        targetPath: '$(System.DefaultWorkingDirectory)'
+        targetPath: '$(Pipeline.Workspace)'
 
     # 2) Transferir al servidor remoto
     - task: PowerShell@2
@@ -42,22 +37,21 @@ jobs:
       inputs:
         targetType: 'inline'
         script: |
-          # Directorio donde DownloadPipelineArtifact colocó el JAR
-          $workingDir = "$(System.DefaultWorkingDirectory)"
-      
-          # Busca el primer .jar en ese directorio
-          $jarFile = Get-ChildItem -Path $workingDir -Filter "*.jar" | Select-Object -First 1
+          # Ubicación donde DownloadPipelineArtifact colocó el artifact:
+          $artifactDir = Join-Path $env:Pipeline_Workspace '${{ parameters.artifactName }}'
+          
+          # Busca el primer .jar en esa carpeta
+          $jarFile = Get-ChildItem -Path $artifactDir -Filter '*.jar' | Select-Object -First 1
           if (-not $jarFile) {
-            Write-Error "No se encontró ningún .jar en $workingDir"
-            exit 1
+            throw "No se encontró ningún .jar en $artifactDir"
           }
 
-          # Origen y destino
+          # Define origen y destino
           $source = $jarFile.FullName
           $destination = "${{ parameters.remoteUser }}@${{ parameters.remoteHost }}:${{ parameters.remotePath }}/app.jar"
-      
-          Write-Host "Transfiriendo '$($jarFile.Name)' a $destination"
-          scp.exe -o StrictHostKeyChecking=no $source $destination 
+          
+          Write-Host "Transfiriendo '$($jarFile.Name)' desde '$source' a '$destination'"
+          scp.exe -o StrictHostKeyChecking=no $source $destination
 
     # 3) Respaldar el artefacto anterior
     - task: PowerShell@2
@@ -67,7 +61,7 @@ jobs:
         script: |
           $remote = "${{ parameters.remoteUser }}@${{ parameters.remoteHost }}"
           $cmd = "mkdir -p ${{ parameters.backupPath }} && cp ${{ parameters.remotePath }}/app.jar ${{ parameters.backupPath }}/app-$(date +'%Y%m%d%H%M%S').jar"
-          Write-Host "Running backup on $remote: $cmd"
+          Write-Host "Ejecutando backup en $remote: $cmd"
           ssh.exe -o StrictHostKeyChecking=no $remote $cmd
 
     # 4) Reemplazar y reiniciar la aplicación
@@ -81,7 +75,7 @@ jobs:
           pkill -f "java -jar"
           nohup java -jar ${{ parameters.remotePath }}/app.jar > /dev/null 2>&1 &
           '@
-          Write-Host "Executing restart block on $remote"
+          Write-Host "Reiniciando aplicación en $remote"
           ssh.exe -o StrictHostKeyChecking=no $remote $block
 
     # 5) Health check HTTP
@@ -92,13 +86,12 @@ jobs:
         script: |
           $url = "${{ parameters.healthCheckUrl }}"
           for ($i=1; $i -le 5; $i++) {
-            $status = (curl.exe -s -o $null -w "%{http_code}" $url)
+            $status = (& curl.exe -s -o $null -w "%{http_code}" $url)
             if ($status -eq "200") {
-              Write-Host "Health check passed"
+              Write-Host "Health check OK"
               exit 0
             }
-            Write-Host "Attempt $i: Health check failed with status $status"
+            Write-Host "Intento $i: estado $status"
             Start-Sleep -Seconds 5
           }
-          Write-Error "Health check failed after retries"
-          exit 1
+          throw "Health check falló después de reintentos"
