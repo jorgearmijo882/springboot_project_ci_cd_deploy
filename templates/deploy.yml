@@ -35,22 +35,23 @@ jobs:
       inputs:
         targetType: 'inline'
         script: |
-          # Ruta raíz donde DownloadPipelineArtifact colocó todo
+          # 1) Defino la raíz donde DownloadPipelineArtifact descargó todo
           $artifactRoot = "$(Pipeline.Workspace)"
-      
-          # Busca recursivamente el primer .jar en cualquier subcarpeta
-          $jarFile = Get-ChildItem -Path $artifactRoot -Filter '*.jar' -Recurse |
-                     Select-Object -First 1
 
-          if (-not $jarFile) {
-            throw "ERROR: No se encontró ningún .jar en $artifactRoot"
+          Write-Host "Buscando .jar dentro de $artifactRoot (recursivo)..."
+          # 2) Busco recursivamente el primer .jar en cualquier subcarpeta
+          $jar = Get-ChildItem -Path $artifactRoot -Filter '*.jar' -Recurse |
+                 Select-Object -First 1
+          
+          if (-not $jar) {
+            throw "ERROR: No se encontró ningún .jar en $artifactRoot ni sus subcarpetas."
           }
 
-          # Origen y destino
-          $source      = $jarFile.FullName
+          # 3) Defino origen y destino
+          $source      = $jar.FullName
           $destination = "${{ parameters.remoteUser }}@${{ parameters.remoteHost }}:${{ parameters.remotePath }}/app.jar"
 
-          Write-Host "Transfiriendo '$($jarFile.Name)' desde '$source' a '$destination'"
+          Write-Host "Transfiriendo '$($jar.Name)' desde '$source' a '$destination'..."
           scp.exe -o StrictHostKeyChecking=no $source $destination
 
     # 3) Respaldar el artefacto anterior
