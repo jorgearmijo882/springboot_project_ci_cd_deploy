@@ -1,15 +1,19 @@
 parameters:
-  artifactName: ''
-  version: ''
+  - name: artifactName
+    type: string
+    default: ''
+  - name: version
+    type: string
+    default: ''
 
-- job: Release
-  displayName: Publish Artifact
-  pool:
-    name: Default
+job: Release
+displayName: Publish Artifact
+pool:
+  name: Default
 
-  steps:
-    - task: PublishPipelineArtifact@1
-      displayName: 'Publish JAR as Pipeline Artifact'
-      inputs:
-        targetPath: '$(Build.ArtifactStagingDirectory)'
-        artifact: ${{ parameters.artifactName }}
+steps:
+- task: PublishPipelineArtifact@1
+  displayName: 'Publish JAR as Pipeline Artifact'
+  inputs:
+    targetPath: '$(Build.ArtifactStagingDirectory)'
+    artifact: ${{ parameters.artifactName }}

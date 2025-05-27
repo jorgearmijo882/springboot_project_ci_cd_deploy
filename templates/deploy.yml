@@ -1,63 +1,75 @@
 parameters:
-  artifactName: ''
-  version: ''
-  remoteHost: ''
-  remoteUser: ''
-  remotePath: ''
-  backupPath: ''
-  healthCheckUrl: ''
+  - name: artifactName
+    type: string
+    default: ''
+  - name: version
+    type: string
+    default: ''
+  - name: remoteHost
+    type: string
+    default: ''
+  - name: remoteUser
+    type: string
+    default: ''
+  - name: remotePath
+    type: string
+    default: ''
+  - name: backupPath
+    type: string
+    default: ''
+  - name: healthCheckUrl
+    type: string
+    default: ''
 
-- job: Deploy
-  displayName: Deploy to Remote
-  pool:
-    name: Default
+job: Deploy
+displayName: Deploy to Remote
+pool:
+  name: Default
 
-  steps:
-    # 1) Descargar el JAR publicado en Release
-    - task: DownloadPipelineArtifact@2
-      displayName: 'Download JAR from Build'
-      inputs:
-        buildType: 'current'
-        artifactName: ${{ parameters.artifactName }}
-        targetPath: '$(System.DefaultWorkingDirectory)'
+steps:
+- checkout: self
+  persistCredentials: true
 
-    # 2) Transferir al servidor remoto
-    - script: |
-        echo "Transferring artifact to remote server..."
-        scp -o StrictHostKeyChecking=no \
-          $(System.DefaultWorkingDirectory)/${{ parameters.artifactName }}-${{ parameters.version }}.jar \
-          ${{ parameters.remoteUser }}@${{ parameters.remoteHost }}:${{ parameters.remotePath }}/app.jar
-      displayName: 'Transfer Artifact'
+- task: DownloadPipelineArtifact@2
+  displayName: 'Download JAR from Build'
+  inputs:
+    buildType: 'current'
+    artifactName: ${{ parameters.artifactName }}
+    targetPath: '$(System.DefaultWorkingDirectory)'
 
-    # 3) Respaldar el artefacto anterior
-    - script: |
-        echo "Backing up previous artifact..."
-        ssh -o StrictHostKeyChecking=no ${{ parameters.remoteUser }}@${{ parameters.remoteHost }} \
-          "mkdir -p ${{ parameters.backupPath }} && \
-           cp ${{ parameters.remotePath }}/app.jar ${{ parameters.backupPath }}/app-$(date +'%Y%m%d%H%M%S').jar"
-      displayName: 'Backup Previous Artifact'
+- script: |
+    echo "Transferring artifact to remote server..."
+    scp -o StrictHostKeyChecking=no \
+      $(System.DefaultWorkingDirectory)/${{ parameters.artifactName }}-${{ parameters.version }}.jar \
+      ${{ parameters.remoteUser }}@${{ parameters.remoteHost }}:${{ parameters.remotePath }}/app.jar
+  displayName: 'Transfer Artifact'
 
-    # 4) Reemplazar y reiniciar la aplicación
-    - script: |
-        echo "Replacing and restarting application..."
-        ssh -o StrictHostKeyChecking=no ${{ parameters.remoteUser }}@${{ parameters.remoteHost }} << 'EOF'
-          pkill -f "java -jar"
-          nohup java -jar ${{ parameters.remotePath }}/app.jar > /dev/null 2>&1 &
-        EOF
-      displayName: 'Replace and Restart Application'
+- script: |
+    echo "Backing up previous artifact..."
+    ssh -o StrictHostKeyChecking=no ${{ parameters.remoteUser }}@${{ parameters.remoteHost }} \
+      "mkdir -p ${{ parameters.backupPath }} && \
+       cp ${{ parameters.remotePath }}/app.jar ${{ parameters.backupPath }}/app-$(date +'%Y%m%d%H%M%S').jar"
+  displayName: 'Backup Previous Artifact'
 
-    # 5) Health check HTTP
-    - script: |
-        echo "Performing health check..."
-        for i in {1..5}; do
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ parameters.healthCheckUrl }})
-          if [ "$HTTP_STATUS" -eq 200 ]; then
-            echo "Health check passed"
-            exit 0
-          fi
-          echo "Attempt $i: Health check failed with status $HTTP_STATUS"
-          sleep 5
-        done
-        echo "Health check failed after retries"
-        exit 1
-      displayName: 'Health Check'
+- script: |
+    echo "Replacing and restarting application..."
+    ssh -o StrictHostKeyChecking=no ${{ parameters.remoteUser }}@${{ parameters.remoteHost }} << 'EOF'
+      pkill -f "java -jar"
+      nohup java -jar ${{ parameters.remotePath }}/app.jar > /dev/null 2>&1 &
+    EOF
+  displayName: 'Replace and Restart Application'
+
+- script: |
+    echo "Performing health check..."
+    for i in {1..5}; do
+      HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ parameters.healthCheckUrl }})
+      if [ "$HTTP_STATUS" -eq 200 ]; then
+        echo "Health check passed"
+        exit 0
+      fi
+      echo "Attempt $i: Health check failed with status $HTTP_STATUS"
+      sleep 5
+    done
+    echo "Health check failed after retries"
+    exit 1
+  displayName: 'Health Check'
