@@ -42,11 +42,22 @@ jobs:
       inputs:
         targetType: 'inline'
         script: |
-          # Aquí usamos literales ya expandidos: ej. "demo-51.jar"
-          $source = Join-Path "$(System.DefaultWorkingDirectory)" "${{ parameters.artifactName }}-${{ parameters.version }}.jar"
+          # Directorio donde DownloadPipelineArtifact colocó el JAR
+          $workingDir = "$(System.DefaultWorkingDirectory)"
+      
+          # Busca el primer .jar en ese directorio
+          $jarFile = Get-ChildItem -Path $workingDir -Filter "*.jar" | Select-Object -First 1
+          if (-not $jarFile) {
+            Write-Error "No se encontró ningún .jar en $workingDir"
+            exit 1
+          }
+
+          # Origen y destino
+          $source = $jarFile.FullName
           $destination = "${{ parameters.remoteUser }}@${{ parameters.remoteHost }}:${{ parameters.remotePath }}/app.jar"
-          Write-Host "Transferring artifact from $source to $destination"
-          scp.exe -o StrictHostKeyChecking=no $source $destination
+      
+          Write-Host "Transfiriendo '$($jarFile.Name)' a $destination"
+          scp.exe -o StrictHostKeyChecking=no $source $destination 
 
     # 3) Respaldar el artefacto anterior
     - task: PowerShell@2
