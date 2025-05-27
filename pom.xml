@@ -49,4 +49,14 @@
       </plugin>
     </plugins>
   </build>
+  <repository>
+  <id>demo-feed</id>
+  <url>https://pkgs.dev.azure.com/jlarmijodevops/springboot-demo/_packaging/demo-feed/maven/v1</url>
+  <releases>
+    <enabled>true</enabled>
+  </releases>
+  <snapshots>
+    <enabled>true</enabled>
+  </snapshots>
+</repository>
 </project>
